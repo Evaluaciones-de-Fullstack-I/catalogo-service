@@ -31,10 +31,10 @@ public class ProductoController {
     @Autowired
     private ProductoMapper productoMapper;
 
-    @Autowired
-    private WebClient.Builder webClientBuilder;
+    //@Autowired
+    //private WebClient.Builder webClientBuilder;
 
-    // Uso de @RequestParam (Exigencia del profesor)
+    // Uso de @RequestParam
     @GetMapping("/disponibles")
     public ResponseEntity<List<ProductoResponseDTO>> obtenerDisponibles(
             @RequestParam(defaultValue = "1") Integer stockMinimo) {
@@ -47,7 +47,7 @@ public class ProductoController {
         return ResponseEntity.ok(response);
     }
 
-    // Uso de @PathVariable (Exigencia del profesor)
+    // Uso de @PathVariable
     @GetMapping("/{id}")
     public ResponseEntity<ProductoResponseDTO> obtenerPorId(@PathVariable Long id) {
         Producto producto = productoRepository.findById(id)
@@ -56,7 +56,7 @@ public class ProductoController {
         return ResponseEntity.ok(productoMapper.toDto(producto));
     }
 
-    // Uso de @Valid, ResponseEntity y WebClient (Exigencias del profesor)
+    // Uso de @Valid, ResponseEntity y WebClient
     @PostMapping
     public ResponseEntity<ProductoResponseDTO> crearProducto(@Valid @RequestBody ProductoRequestDTO requestDTO) {
         

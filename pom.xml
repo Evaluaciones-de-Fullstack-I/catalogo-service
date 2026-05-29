@@ -5,7 +5,7 @@
     <parent>
         <groupId>org.springframework.boot</groupId>
         <artifactId>spring-boot-starter-parent</artifactId>
-        <version>3.2.5</version> <relativePath/> </parent>
+        <version>3.5.14</version> <relativePath/> </parent>
     <groupId>cl.duoc</groupId>
     <artifactId>catalogo</artifactId>
     <version>0.0.1-SNAPSHOT</version>
@@ -13,7 +13,7 @@
     <description>Microservicio de Catalogo de Productos</description>
     
     <properties>
-        <java.version>25</java.version>
+        <java.version>17</java.version>
     </properties>
     
     <dependencies>
