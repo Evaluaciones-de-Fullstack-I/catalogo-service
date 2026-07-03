@@ -136,13 +136,13 @@ public class ProductoController {
         Categoria categoria = categoriaRepository.findById(requestDTO.getCategoriaId())
                 .orElseThrow(() -> new ResourceNotFoundException("Categoría no encontrada con ID: " + requestDTO.getCategoriaId()));
 
-        // 2. USO DE WEBCLIENT (Comunicación con el MS de Elizabeth)
+        // 2. USO DE WEBCLIENT (Eureka ahora traduce dinámicamente "vendedores-service")
         try {
             VendedorDTO vendedor = webClientBuilder.build().get()
-                    .uri("http://localhost:8083/api/v1/vendedores/" + requestDTO.getVendedorId())
-                    .retrieve()
-                    .bodyToMono(VendedorDTO.class)
-                    .block();
+                .uri("http://vendedores-service/api/v1/vendedores/" + requestDTO.getVendedorId())
+                .retrieve()
+                .bodyToMono(VendedorDTO.class)
+                .block();
                     
             if (vendedor == null || !"APROBADO".equalsIgnoreCase(vendedor.getEstado())) {
                  return ResponseEntity.status(HttpStatus.FORBIDDEN)
