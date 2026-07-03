@@ -2,20 +2,27 @@ package cl.duoc.catalogo.controller;
 
 import cl.duoc.catalogo.dto.ProductoRequestDTO;
 import cl.duoc.catalogo.dto.ProductoResponseDTO;
-import cl.duoc.catalogo.dto.VendedorDTO; // <-- Agrega este import para tu nuevo DTO
+import cl.duoc.catalogo.dto.VendedorDTO;
 import cl.duoc.catalogo.exception.ResourceNotFoundException;
 import cl.duoc.catalogo.mapper.ProductoMapper;
 import cl.duoc.catalogo.model.Categoria;
 import cl.duoc.catalogo.model.Producto;
 import cl.duoc.catalogo.repository.CategoriaRepository;
 import cl.duoc.catalogo.repository.ProductoRepository;
+import io.swagger.v3.oas.annotations.Operation;
+import io.swagger.v3.oas.annotations.media.Content;
+import io.swagger.v3.oas.annotations.media.ExampleObject;
+import io.swagger.v3.oas.annotations.media.Schema;
+import io.swagger.v3.oas.annotations.parameters.RequestBody;
+import io.swagger.v3.oas.annotations.responses.ApiResponse;
+import io.swagger.v3.oas.annotations.tags.Tag;
 import jakarta.validation.Valid;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
-import org.springframework.web.reactive.function.client.WebClient; // <-- Descomenta este import
-import org.springframework.web.reactive.function.client.WebClientResponseException; // <-- Agrega este import para manejar errores 404
+import org.springframework.web.reactive.function.client.WebClient;
+import org.springframework.web.reactive.function.client.WebClientResponseException;
 
 import java.util.List;
 import java.util.stream.Collectors;
@@ -23,6 +30,7 @@ import java.util.stream.Collectors;
 @RestController
 @RequestMapping("/api/productos")
 @SuppressWarnings("null")
+@Tag(name = "Productos", description = "Controlador para la gestión del catálogo de productos y validación con microservicios externos")
 public class ProductoController {
 
     @Autowired
@@ -34,11 +42,20 @@ public class ProductoController {
     @Autowired
     private ProductoMapper productoMapper;
 
-    @Autowired // <-- Descomenta esto
-    private WebClient.Builder webClientBuilder; // <-- Descomenta esto
+    @Autowired
+    private WebClient.Builder webClientBuilder;
 
-    // Uso de @RequestParam
     @GetMapping("/disponibles")
+    @Operation(
+        summary = "Obtener productos disponibles",
+        description = "Retorna una lista de productos que cumplen con un stock mínimo especificado.",
+        responses = {
+            @ApiResponse(
+                responseCode = "200", 
+                description = "Lista de productos obtenida exitosamente"
+            )
+        }
+    )
     public ResponseEntity<List<ProductoResponseDTO>> obtenerDisponibles(
             @RequestParam(defaultValue = "1") Integer stockMinimo) {
         
@@ -50,8 +67,22 @@ public class ProductoController {
         return ResponseEntity.ok(response);
     }
 
-    // Uso de @PathVariable
     @GetMapping("/{id}")
+    @Operation(
+        summary = "Buscar producto por ID",
+        description = "Busca y retorna los detalles de un producto en base a su identificador único.",
+        responses = {
+            @ApiResponse(
+                responseCode = "200", 
+                description = "Producto encontrado exitosamente"
+            ),
+            @ApiResponse(
+                responseCode = "404", 
+                description = "El producto con el ID entregado no existe",
+                content = @Content(schema = @Schema(implementation = String.class))
+            )
+        }
+    )
     public ResponseEntity<ProductoResponseDTO> obtenerPorId(@PathVariable Long id) {
         Producto producto = productoRepository.findById(id)
                 .orElseThrow(() -> new ResourceNotFoundException("Producto no encontrado con el ID: " + id));
@@ -59,9 +90,47 @@ public class ProductoController {
         return ResponseEntity.ok(productoMapper.toDto(producto));
     }
 
-    // Uso de @Valid, ResponseEntity y WebClient
     @PostMapping
-    public ResponseEntity<?> crearProducto(@Valid @RequestBody ProductoRequestDTO requestDTO) { // <-- Cambiamos ProductoResponseDTO a ? para poder devolver mensajes de error
+    @Operation(
+        summary = "Crear un nuevo producto",
+        description = "Registra un producto asociándolo a una categoría interna y validando la existencia del vendedor a través de un microservicio externo por WebClient.",
+        responses = {
+            @ApiResponse(
+                responseCode = "201", 
+                description = "Producto registrado de manera exitosa"
+            ),
+            @ApiResponse(
+                responseCode = "400", 
+                description = "Datos de entrada inválidos o faltantes"
+            ),
+            @ApiResponse(
+                responseCode = "403", 
+                description = "Operación rechazada: El vendedor no tiene estado APROBADO"
+            ),
+            @ApiResponse(
+                responseCode = "404", 
+                description = "La categoría indicada o el vendedor no existen"
+            ),
+            @ApiResponse(
+                responseCode = "500", 
+                description = "Error de comunicación con el servicio de Vendedores"
+            )
+        }
+    )
+    public ResponseEntity<?> crearProducto(
+            @Valid @RequestBody(
+                description = "Estructura JSON necesaria para registrar un producto en el catálogo",
+                required = true,
+                content = @Content(
+                    mediaType = "application/json",
+                    schema = @Schema(implementation = ProductoRequestDTO.class),
+                    examples = @ExampleObject(
+                        name = "Ejemplo de Creación de Producto",
+                        value = "{\n  \"nombre\": \"Audífonos Bluetooth\",\n  \"descripcion\": \"Audífonos inalámbricos con cancelación de ruido\",\n  \"precio\": 49990,\n  \"stock\": 25,\n  \"categoriaId\": 2,\n  \"vendedorId\": 105\n}"
+                    )
+                )
+            )
+            @org.springframework.web.bind.annotation.RequestBody ProductoRequestDTO requestDTO) { 
         
         // 1. Validar Categoría
         Categoria categoria = categoriaRepository.findById(requestDTO.getCategoriaId())
@@ -69,25 +138,21 @@ public class ProductoController {
 
         // 2. USO DE WEBCLIENT (Comunicación con el MS de Elizabeth)
         try {
-            // Hacemos la llamada a la ruta real de Elizabeth en el puerto 8083
             VendedorDTO vendedor = webClientBuilder.build().get()
                     .uri("http://localhost:8083/api/v1/vendedores/" + requestDTO.getVendedorId())
                     .retrieve()
                     .bodyToMono(VendedorDTO.class)
                     .block();
                     
-            // Validamos que el vendedor exista y su estado (ajusta "APROBADO" si ella usa otra palabra)
             if (vendedor == null || !"APROBADO".equalsIgnoreCase(vendedor.getEstado())) {
                  return ResponseEntity.status(HttpStatus.FORBIDDEN)
                         .body("El vendedor no está autorizado o su estado no es APROBADO.");
             }
             
         } catch (WebClientResponseException.NotFound e) {
-             // Si el API de Elizabeth devuelve un 404 (no encontró al vendedor)
              return ResponseEntity.status(HttpStatus.NOT_FOUND)
                      .body("Operación rechazada: El vendedor indicado no existe en el sistema.");
         } catch (Exception e) {
-             // Por si el microservicio de Elizabeth está apagado
              return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR)
                      .body("Error de comunicación con el servicio de Vendedores. Intente más tarde.");
         }
