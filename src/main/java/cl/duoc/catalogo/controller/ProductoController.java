@@ -18,6 +18,7 @@ import io.swagger.v3.oas.annotations.responses.ApiResponse;
 import io.swagger.v3.oas.annotations.tags.Tag;
 import jakarta.validation.Valid;
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.beans.factory.annotation.Value; // 👈 Agregado para leer la URL fija
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
@@ -44,6 +45,10 @@ public class ProductoController {
 
     @Autowired
     private WebClient.Builder webClientBuilder;
+
+    // 🛰️ URL del microservicio de Vendedores (Configurable desde properties o Railway)
+    @Value("${url.vendedores:http://localhost:8081}")
+    private String urlVendedores;
 
     @GetMapping("/disponibles")
     @Operation(
@@ -136,10 +141,10 @@ public class ProductoController {
         Categoria categoria = categoriaRepository.findById(requestDTO.getCategoriaId())
                 .orElseThrow(() -> new ResourceNotFoundException("Categoría no encontrada con ID: " + requestDTO.getCategoriaId()));
 
-        // 2. USO DE WEBCLIENT (Eureka ahora traduce dinámicamente "vendedores-service")
+        // 2. USO DE WEBCLIENT (Llamada directa usando la variable urlVendedores)
         try {
             VendedorDTO vendedor = webClientBuilder.build().get()
-                .uri("http://vendedores-service/api/v1/vendedores/" + requestDTO.getVendedorId())
+                .uri(urlVendedores + "/api/v1/vendedores/" + requestDTO.getVendedorId())
                 .retrieve()
                 .bodyToMono(VendedorDTO.class)
                 .block();
