@@ -169,4 +169,11 @@ public class ProductoController {
         // 4. Retornar DTO con código 201 CREATED
         return new ResponseEntity<>(productoMapper.toDto(productoGuardado), HttpStatus.CREATED);
     }
+    // ENDPOINT TEMPORAL PARA CREAR CATEGORÍAS
+    @PostMapping("/categorias")
+    @Operation(summary = "Crear una nueva categoría (Soporte Demo)")
+    public ResponseEntity<Categoria> crearCategoria(@RequestBody Categoria nuevaCategoria) {
+        Categoria guardada = categoriaRepository.save(nuevaCategoria);
+        return new ResponseEntity<>(guardada, HttpStatus.CREATED);
+    }
 }
